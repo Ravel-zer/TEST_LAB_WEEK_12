@@ -27,8 +27,12 @@ class MovieViewModel(private val movieRepository: MovieRepository) : ViewModel()
                 .catch {
                     _error.value = "An exception occurred: ${it.message}"
                 }
-                .collect {
-                    _popularMovies.value = it
+                .collect { movies ->
+
+                    val sortedMovies = movies
+                        .sortedByDescending { it.popularity }
+
+                    _popularMovies.value = sortedMovies
                 }
         }
     }
