@@ -4,15 +4,21 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import java.util.Calendar
 import androidx.lifecycle.ViewModel
 import com.example.test_lab_week_12.model.Movie
+import kotlinx.coroutines.launch
+import androidx.lifecycle.Lifecycle
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var movieViewModel: MovieViewModel
+    private lateinit var recyclerView: RecyclerView
+
     private val movieAdapter = MovieAdapter(object : MovieAdapter.MovieClickListener {
         override fun onMovieClick(movie: Movie) {
             val intent = Intent(this@MainActivity, DetailsActivity::class.java)
@@ -28,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val recyclerView: RecyclerView = findViewById(R.id.movie_list)
+        recyclerView = findViewById(R.id.movie_list)
         recyclerView.adapter = movieAdapter
 
         val movieRepository = (application as MovieApplication).movieRepository
@@ -42,21 +48,22 @@ class MainActivity : AppCompatActivity() {
             }
         )[MovieViewModel::class.java]
 
-        movieViewModel.popularMovies.observe(this) { popularMovies ->
-            val currentYear = Calendar.getInstance().get(Calendar.YEAR).toString()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-            movieAdapter.addMovies(
-                popularMovies
-                    .filter { movie ->
-                        movie.releaseDate?.startsWith(currentYear) == true
+                launch {
+                    movieViewModel.popularMovies.collect { movies ->
+                        movieAdapter.addMovies(movies)
                     }
-                    .sortedByDescending { it.popularity }
-            )
-        }
+                }
 
-        movieViewModel.error.observe(this) { error ->
-            if (!error.isNullOrEmpty()) {
-                Snackbar.make(recyclerView, error, Snackbar.LENGTH_LONG).show()
+                launch {
+                    movieViewModel.error.collect { error ->
+                        if (error.isNotEmpty()) {
+                            Snackbar.make(recyclerView, error, Snackbar.LENGTH_LONG).show()
+                        }
+                    }
+                }
             }
         }
     }
